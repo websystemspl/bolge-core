@@ -1,0 +1,15 @@
+services:
+  _defaults:
+    autoconfigure: true
+    autowire: true
+
+  # Load Core Abstract Controller
+  Websystems\BolgeCore\Controller:
+    class: Websystems\BolgeCore\Controller
+    public: true
+
+  # Load Doctrine
+  Doctrine\ORM\EntityManagerInterface: '@doctrine.orm.entity_manager'
+
+  # Load DI Container Interface
+  Symfony\Component\DependencyInjection\ContainerInterface: '@service_container'      

@@ -1,0 +1,33 @@
+{
+	"name": "websystemspl/bolge-core",
+	"type": "library",
+	"description": "Library.",
+	"keywords": ["wordpress", "plugin updates", "automatic updates", "theme updates"],
+	"homepage": "https://web-systems.pl",
+	"license": "MIT",
+    "require": {
+        "php": ">=7.4.0",
+        "symfony/http-foundation": "^5.2",
+        "twig/twig": "^3.0",
+        "symfony/yaml": "^5.2",
+        "symfony/http-kernel": "^5.2",
+        "symfony/routing": "^5.2",
+        "symfony/config": "^5.2",
+        "symfony/finder": "^5.2",
+        "jasongrimes/paginator": "~1.0",
+        "symfony/dependency-injection": "5.2",
+        "symfony/property-access": "^5.2",
+        "psr/container": "1.0.0",
+        "doctrine/orm": "^2.11.0",
+        "doctrine/dbal": "^3.2",
+        "doctrine/annotations": "^1.13",
+        "symfony/cache": "^5.4",
+        "symfony/serializer": "^5.4",
+        "symfony/framework-bundle": "^5.2"        
+    },  
+    "autoload": {
+        "psr-4": { 
+            "Websystems\\BolgeCore": "src/"
+        }
+    }
+}
