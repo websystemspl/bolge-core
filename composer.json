@@ -27,7 +27,7 @@
     },  
     "autoload": {
         "psr-4": { 
-            "Websystems\\BolgeCore": "src/"
+            "Websystems\\BolgeCore\\": "src/"
         }
     }
 }
