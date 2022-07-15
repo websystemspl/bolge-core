@@ -4,26 +4,27 @@ declare(strict_types = 1);
 namespace Websystems\BolgeCore;
 
 use stdClass;
-use Doctrine\ORM\Tools\Setup;
+use Doctrine\ORM\ORMSetup;
 use Doctrine\ORM\EntityManager;
 use Symfony\Component\Yaml\Yaml;
 use Doctrine\ORM\Tools\SchemaTool;
-use Websystems\BolgeCore\Event\BootEvent;
-use Websystems\BolgeCore\Event\ActivateEvent;
 use Symfony\Component\Config\FileLocator;
+use Websystems\BolgeCore\Event\BootEvent;
 use Symfony\Component\HttpKernel\HttpKernel;
-use Websystems\BolgeCore\DoctrineExtensions\TablePrefix;
+use Websystems\BolgeCore\BolgeCoreInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\RequestContext;
+use Websystems\BolgeCore\Event\ActivateEvent;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\RouteCollection;
-use Websystems\BolgeCore\Event\HttpKernelRequestEvent;
 use Symfony\Component\Routing\Matcher\UrlMatcher;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\Routing\Loader\YamlFileLoader;
 use Symfony\Component\Routing\Generator\UrlGenerator;
 use Symfony\Component\EventDispatcher\EventDispatcher;
+use Websystems\BolgeCore\Event\HttpKernelRequestEvent;
+use Websystems\BolgeCore\DoctrineExtensions\TablePrefix;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpKernel\Controller\ArgumentResolver;
 use Symfony\Component\HttpKernel\EventListener\RouterListener;
@@ -32,10 +33,20 @@ use Symfony\Component\Routing\Exception\ResourceNotFoundException;
 use Symfony\Component\HttpKernel\Controller\ContainerControllerResolver;
 use Symfony\Component\DependencyInjection\Loader\YamlFileLoader as ServicesYamlLoader;
 
-class BolgeCore extends Singleton
-{ 
+/**
+ * Core class which control HTTP stream using symfony components
+ *
+ * To run app use instance of BolgeCore class and set:
+ * - setTablePrefix (not required)
+ * - setDirPath (required)
+ * - setDbConnectionParams (required)
+ * and then use boot method with @var Request
+ *
+ */
+class BolgeCore extends Singleton implements BolgeCoreInterface
+{
     private stdClass $settings;
-    private RouteCollection $routes;    
+    private RouteCollection $routes;
     private Request $request;
     private ?Response $response;
     private ContainerBuilder $containerBuilder;
@@ -48,7 +59,7 @@ class BolgeCore extends Singleton
     private string $databaseHost;
 
     /**
-     * Start App
+     * Boot App
      *
      * @return void
      */
@@ -58,7 +69,7 @@ class BolgeCore extends Singleton
         $this->routes   = $this->getRoutes();
         $this->settings = $this->getSettings();
         $this->response = $this->handle($this->request);
-        
+
         /**
          * @var BootEvent
          */
@@ -74,8 +85,8 @@ class BolgeCore extends Singleton
      * @param Request $request
      * @return ?Response
      */
-    private function handle(Request $request)//: ?Response
-    {        
+    private function handle(Request $request): ?Response
+    {
         $this->containerBuilder = new ContainerBuilder();
         $dispatcher = new EventDispatcher();
 
@@ -101,8 +112,8 @@ class BolgeCore extends Singleton
             ->addArgument(null)
             ->addArgument(null)
             ->addArgument(false)
-            ->setFactory(array(Setup::class, 'createAnnotationMetadataConfiguration'))
-        ;        
+            ->setFactory(array(ORMSetup::class, 'createAnnotationMetadataConfiguration'))
+        ;
 
         /** Doctrine Entity Manager */
         $this->containerBuilder
@@ -145,7 +156,7 @@ class BolgeCore extends Singleton
 
         /**
          * @var HttpKernelRequestEvent
-         */        
+         */
         $this->containerBuilder
             ->get('Symfony\Component\EventDispatcher\EventDispatcherInterface')
             ->dispatch(new HttpKernelRequestEvent($request), HttpKernelRequestEvent::NAME)
@@ -166,13 +177,18 @@ class BolgeCore extends Singleton
                 dump($exception);
             }
         }
-        
+
         return $response;
     }
 
-    public function generateTemplate()
+	/**
+	 * Get app response
+	 *
+	 * @return Response|null
+	 */
+    public function getResponse(): ?Response
     {
-        echo $this->response->getContent();
+        return $this->response;
     }
 
     /**
@@ -181,7 +197,7 @@ class BolgeCore extends Singleton
      * @param string $prefix
      * @return void
      */
-    public function setTablePrefix(string $prefix)
+    public function setTablePrefix(string $prefix): void
     {
         $this->tablePrefix = $prefix;
     }
@@ -196,7 +212,17 @@ class BolgeCore extends Singleton
         return $this->tablePrefix;
     }
 
-    public function setDbConnectionParams(string $databaseDriver, string $databaseUser, string $databasePassword, string $databaseDbName, string $databaseHost)
+	/**
+	 * Setup Doctrine connection params
+	 *
+	 * @param string $databaseDriver
+	 * @param string $databaseUser
+	 * @param string $databasePassword
+	 * @param string $databaseDbName
+	 * @param string $databaseHost
+	 * @return void
+	 */
+    public function setDbConnectionParams(string $databaseDriver, string $databaseUser, string $databasePassword, string $databaseDbName, string $databaseHost): void
     {
         $this->databaseDriver = $databaseDriver;
         $this->databaseUser = $databaseUser;
@@ -211,7 +237,7 @@ class BolgeCore extends Singleton
      * @param string $prefix
      * @return void
      */
-    public function setDirPath(string $dirpath)
+    public function setDirPath(string $dirpath): void
     {
         $this->dirPath = $dirpath;
     }
@@ -228,9 +254,9 @@ class BolgeCore extends Singleton
 
     /**
      * Get data from yaml settings
-     * 
+     *
      * @param bool $as_array - return as array (default @var stdClass)
-     */   
+     */
     public function getSettings(bool $as_array = false)
     {
         ($as_array === false) ? $type = Yaml::PARSE_OBJECT_FOR_MAP : $type = 0;
@@ -238,7 +264,7 @@ class BolgeCore extends Singleton
     }
 
     /**
-     * Get routes from config
+     * Get routes from yaml routes
      *
      * @return RouteCollection
      */
@@ -246,20 +272,7 @@ class BolgeCore extends Singleton
     {
         $locator = new FileLocator($this->dirPath . '/config');
         $loader = new YamlFileLoader($locator);
-        return $loader->load('routes.yaml');        
-    }
-
-    /**
-     * Get route path
-     *
-     * @param string $route
-     * @param array $values
-     * @return string
-     */
-    public function getUrlFromRoute(string $route, array $values = []): string
-    {
-        $generator = new UrlGenerator($this->getRoutes(), new RequestContext());
-        return $generator->generate($route, $values);
+        return $loader->load('routes.yaml');
     }
 
     /**
@@ -283,7 +296,7 @@ class BolgeCore extends Singleton
                 $new .= '&action='.$par;
             }
         }
-        
+
         $defaults = @$this->getRoutes()->all()[$route] ?: null;
 
         foreach($defaults->getDefaults() as $key => $param) {
@@ -294,7 +307,7 @@ class BolgeCore extends Singleton
                 $new .= '&'.$key.'='.$values[$key];
             }
         }
-        
+
         return $new;
     }
 
@@ -320,7 +333,7 @@ class BolgeCore extends Singleton
         foreach($sqlDiff as $sql) {
             $stmt = $conn->prepare($sql);
             $stmt->executeQuery();
-        } 
+        }
 
         /**
          * @var ActivateEvent
@@ -328,6 +341,6 @@ class BolgeCore extends Singleton
         $this->containerBuilder
             ->get('Symfony\Component\EventDispatcher\EventDispatcherInterface')
             ->dispatch(new ActivateEvent(null), ActivateEvent::NAME)
-        ;        
+        ;
     }
 }

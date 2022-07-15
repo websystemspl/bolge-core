@@ -12,4 +12,16 @@ services:
   Doctrine\ORM\EntityManagerInterface: '@doctrine.orm.entity_manager'
 
   # Load DI Container Interface
-  Symfony\Component\DependencyInjection\ContainerInterface: '@service_container'      
+  Symfony\Component\DependencyInjection\ContainerInterface: '@service_container'
+
+  # Load DI Request Context
+  request_context:
+    class: Symfony\Component\Routing\RequestContext
+
+  # Load DI Url Generator
+  Symfony\Component\Routing\Generator\UrlGeneratorInterface:
+    class: Symfony\Component\Routing\Generator\UrlGenerator
+    public: true
+    arguments:
+      - '%routes%'
+      - '@request_context'

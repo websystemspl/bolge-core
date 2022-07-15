@@ -2,7 +2,7 @@
 	"name": "websystemspl/bolge-core",
 	"type": "library",
 	"description": "Library.",
-	"keywords": ["wordpress", "plugin updates", "automatic updates", "theme updates"],
+	"keywords": ["wordpress"],
 	"homepage": "https://web-systems.pl",
 	"license": "MIT",
     "require": {
@@ -23,10 +23,11 @@
         "doctrine/annotations": "^1.13",
         "symfony/cache": "^5.4",
         "symfony/serializer": "^5.4",
-        "symfony/framework-bundle": "^5.2"        
-    },  
+        "symfony/framework-bundle": "^5.2",
+        "symfony/dotenv": "^5.4.5"
+    },
     "autoload": {
-        "psr-4": { 
+        "psr-4": {
             "Websystems\\BolgeCore\\": "src/"
         }
     }
