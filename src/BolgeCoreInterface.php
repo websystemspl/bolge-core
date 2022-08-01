@@ -9,7 +9,7 @@ use Symfony\Component\Routing\RouteCollection;
 
 interface BolgeCoreInterface
 {
-	public function boot(Request $request): void;
+	public function boot(Request $request);//: void;
 	public function getResponse(): ?Response;
 	public function setTablePrefix(string $prefix): void;
 	public function getTablePrefix(): string;

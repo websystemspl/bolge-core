@@ -8,6 +8,7 @@ use Doctrine\ORM\ORMSetup;
 use Doctrine\ORM\EntityManager;
 use Symfony\Component\Yaml\Yaml;
 use Doctrine\ORM\Tools\SchemaTool;
+use Symfony\Component\Dotenv\Dotenv;
 use Symfony\Component\Config\FileLocator;
 use Websystems\BolgeCore\Event\BootEvent;
 use Symfony\Component\HttpKernel\HttpKernel;
@@ -21,7 +22,6 @@ use Symfony\Component\Routing\Matcher\UrlMatcher;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\Routing\Loader\YamlFileLoader;
-use Symfony\Component\Routing\Generator\UrlGenerator;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Websystems\BolgeCore\Event\HttpKernelRequestEvent;
 use Websystems\BolgeCore\DoctrineExtensions\TablePrefix;
@@ -52,31 +52,33 @@ class BolgeCore extends Singleton implements BolgeCoreInterface
     private ContainerBuilder $containerBuilder;
     private string $tablePrefix = '';
     private string $dirPath = '';
-    private string $databaseDriver;
-    private string $databaseUser;
-    private string $databasePassword;
-    private string $databaseDbName;
-    private string $databaseHost;
+    private ?string $databaseDriver = null;
+    private ?string $databaseUser = null;
+    private ?string $databasePassword = null;
+    private ?string $databaseDbName = null;
+    private ?string $databaseHost = null;
 
     /**
      * Boot App
      *
      * @return void
      */
-    public function boot(Request $request): void
+    public function boot(Request $request)//: void
     {
-        $this->request  = $request;
-        $this->routes   = $this->getRoutes();
-        $this->settings = $this->getSettings();
-        $this->response = $this->handle($this->request);
+		$this->loadEnvoironmentVariables();
 
-        /**
-         * @var BootEvent
-         */
-        $this->containerBuilder
-            ->get('Symfony\Component\EventDispatcher\EventDispatcherInterface')
-            ->dispatch(new BootEvent($this->request, $this->response), BootEvent::NAME)
-        ;
+		$this->request  = $request;
+		$this->routes   = $this->getRoutes();
+		$this->settings = $this->getSettings();
+		$this->response = $this->handle($this->request);
+
+		/**
+		 * @var BootEvent
+		 */
+		$this->containerBuilder
+			->get('Symfony\Component\EventDispatcher\EventDispatcherInterface')
+			->dispatch(new BootEvent($this->request, $this->response), BootEvent::NAME)
+		;
     }
 
     /**
@@ -98,38 +100,9 @@ class BolgeCore extends Singleton implements BolgeCoreInterface
         $loader = new ServicesYamlLoader($this->containerBuilder, new FileLocator($this->dirPath . '/config'));
         $loader->load('services.yaml');
 
-        /** Doctrine table prefix */
-        $tablePrefix = new TablePrefix($this->tablePrefix);
-        $evm = new \Doctrine\Common\EventManager;
-        $evm->addEventListener(\Doctrine\ORM\Events::loadClassMetadata, $tablePrefix);
-
-        /** Doctrine configuration */
-        $this->containerBuilder
-            ->register('doctrine.setup')
-            ->setClass('Doctrine\ORM\Tools\Setup')
-            ->addArgument([DIR_PATH . "/App/Entity"])
-            ->addArgument(true)
-            ->addArgument(null)
-            ->addArgument(null)
-            ->addArgument(false)
-            ->setFactory(array(ORMSetup::class, 'createAnnotationMetadataConfiguration'))
-        ;
-
-        /** Doctrine Entity Manager */
-        $this->containerBuilder
-            ->register('doctrine.orm.entity_manager')
-            ->setClass('Doctrine\ORM\EntityManager')
-            ->addArgument(array(
-                'driver'   => $this->databaseDriver,
-                'user'     => $this->databaseUser,
-                'password' => $this->databasePassword,
-                'dbname'   => $this->databaseDbName,
-                'host'     => $this->databaseHost,
-            ))
-            ->addArgument(new Reference('doctrine.setup'))
-            ->addArgument($evm)
-            ->setFactory(array(EntityManager::class, 'create'))
-        ;
+		if($this->databaseDriver !== null && $this->databaseUser !== null && $this->databasePassword !== null && $this->databaseDbName !== null && $this->databaseHost !== null) {
+			$this->createDoctrineService();
+		}
 
         /** Settings from yaml */
         $this->containerBuilder->setParameter('core.settings', $this->settings);
@@ -172,7 +145,7 @@ class BolgeCore extends Singleton implements BolgeCoreInterface
             $response = null;
         }
 
-        if($this->settings->env === 'dev') {
+        if(isset($_ENV['ENV']) && $_ENV['ENV'] === 'dev') {
             if(isset($exception)) {
                 dump($exception);
             }
@@ -180,6 +153,42 @@ class BolgeCore extends Singleton implements BolgeCoreInterface
 
         return $response;
     }
+
+	private function createDoctrineService()
+	{
+        /** Doctrine table prefix */
+        $tablePrefix = new TablePrefix($this->tablePrefix);
+        $evm = new \Doctrine\Common\EventManager;
+        $evm->addEventListener(\Doctrine\ORM\Events::loadClassMetadata, $tablePrefix);
+
+        /** Doctrine configuration */
+        $this->containerBuilder
+            ->register('doctrine.setup')
+            ->setClass('Doctrine\ORM\Tools\Setup')
+            ->addArgument([$this->dirPath . "/App/Entity"])
+            ->addArgument(true)
+            ->addArgument(null)
+            ->addArgument(null)
+            ->addArgument(false)
+            ->setFactory(array(ORMSetup::class, 'createAnnotationMetadataConfiguration'))
+        ;
+
+        /** Doctrine Entity Manager */
+        $this->containerBuilder
+            ->register('doctrine.orm.entity_manager')
+            ->setClass('Doctrine\ORM\EntityManager')
+            ->addArgument(array(
+                'driver'   => $this->databaseDriver,
+                'user'     => $this->databaseUser,
+                'password' => $this->databasePassword,
+                'dbname'   => $this->databaseDbName,
+                'host'     => $this->databaseHost,
+            ))
+            ->addArgument(new Reference('doctrine.setup'))
+            ->addArgument($evm)
+            ->setFactory(array(EntityManager::class, 'create'))
+        ;
+	}
 
 	/**
 	 * Get app response
@@ -252,6 +261,21 @@ class BolgeCore extends Singleton implements BolgeCoreInterface
         return $this->dirPath;
     }
 
+	/**
+	 * Load .env variables
+	 *
+	 * Use $_ENV to get variables
+	 *
+	 * @return void
+	 */
+	public function loadEnvoironmentVariables()
+	{
+		if(file_exists($this->dirPath . '/.env')) {
+			$dotenv = new Dotenv();
+			$dotenv->load($this->dirPath . '/.env');
+		}
+	}
+
     /**
      * Get data from yaml settings
      *
@@ -273,42 +297,6 @@ class BolgeCore extends Singleton implements BolgeCoreInterface
         $locator = new FileLocator($this->dirPath . '/config');
         $loader = new YamlFileLoader($locator);
         return $loader->load('routes.yaml');
-    }
-
-    /**
-     * Generate url to admin page by route
-     *
-     * @param string $route
-     * @param array $values
-     * @return ?string
-     */
-    public function getAdminUrlFromRoute(string $route, array $values = []): ?string
-    {
-        $generator = new UrlGenerator($this->getRoutes(), new RequestContext());
-        $generated = $generator->generate($route, $values);
-        $generated = explode("/", $generated);
-        $new = '/wp-admin/admin.php?';
-        foreach($generated as $key => $par) {
-            if($key === 2) {
-                $new .= 'page='.$par;
-            }
-            if($key === 3) {
-                $new .= '&action='.$par;
-            }
-        }
-
-        $defaults = @$this->getRoutes()->all()[$route] ?: null;
-
-        foreach($defaults->getDefaults() as $key => $param) {
-            if(isset($values[$key])) {
-                if($values[$key] === "") {
-                    return null;
-                }
-                $new .= '&'.$key.'='.$values[$key];
-            }
-        }
-
-        return $new;
     }
 
     /**

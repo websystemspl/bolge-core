@@ -25,3 +25,8 @@ services:
     arguments:
       - '%routes%'
       - '@request_context'
+
+  # Load Event Dispatcher
+  Symfony\Component\EventDispatcher\EventDispatcherInterface:
+    public: true
+    class: Symfony\Component\EventDispatcher\EventDispatcher
