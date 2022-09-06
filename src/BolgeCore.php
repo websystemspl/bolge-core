@@ -156,6 +156,7 @@ class BolgeCore extends Singleton implements BolgeCoreInterface
 
 	private function createDoctrineService()
 	{
+
         /** Doctrine table prefix */
         $tablePrefix = new TablePrefix($this->tablePrefix);
         $evm = new \Doctrine\Common\EventManager;
