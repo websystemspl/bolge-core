@@ -155,6 +155,21 @@ class BolgeCore extends Singleton implements BolgeCoreInterface
             }
         }
 
+        $entityManager = $this->containerBuilder->get('doctrine.orm.entity_manager');
+        $schemaTool = new SchemaTool($entityManager);
+        $entities = $entityManager->getConfiguration()->getMetadataDriverImpl()->getAllClassNames();
+        $metadata = [];
+        foreach($entities as $entity) {
+            $metadata[] = $entityManager->getClassMetadata($entity);
+        }
+        $sqlDiff = $schemaTool->getUpdateSchemaSql($metadata, true);
+		dump($sqlDiff);
+        // $conn = $entityManager->getConnection();
+        // foreach($sqlDiff as $sql) {
+        //     $stmt = $conn->prepare($sql);
+        //     $stmt->executeQuery();
+        // }
+
         return $response;
     }
 
@@ -315,14 +330,17 @@ class BolgeCore extends Singleton implements BolgeCoreInterface
          * Install or update schema by doctrine
          */
         $entityManager = $this->containerBuilder->get('doctrine.orm.entity_manager');
+		$conn = $entityManager->getConnection();
+		$conn->getDatabasePlatform()->registerDoctrineTypeMapping('enum', 'string');
         $schemaTool = new SchemaTool($entityManager);
         $entities = $entityManager->getConfiguration()->getMetadataDriverImpl()->getAllClassNames();
-        $metadata = [];
+
+		$metadata = [];
         foreach($entities as $entity) {
             $metadata[] = $entityManager->getClassMetadata($entity);
         }
+
         $sqlDiff = $schemaTool->getUpdateSchemaSql($metadata, true);
-        $conn = $entityManager->getConnection();
         foreach($sqlDiff as $sql) {
             $stmt = $conn->prepare($sql);
             $stmt->executeQuery();
