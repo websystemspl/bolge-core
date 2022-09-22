@@ -104,6 +104,10 @@ class BolgeCore extends Singleton implements BolgeCoreInterface
 			$this->createDoctrineService();
 		}
 
+		foreach ($this->containerBuilder->getDefinitions() as $id => $definition) {
+			$definition->setPublic(true);
+		}
+
         /** Settings from yaml */
         $this->containerBuilder->setParameter('core.settings', $this->settings);
         $this->containerBuilder->setParameter('core.settings.array', $this->getSettings(true));
