@@ -317,6 +317,7 @@ class BolgeCore extends Singleton implements BolgeCoreInterface
         $entityManager = $this->containerBuilder->get('doctrine.orm.entity_manager');
 		$conn = $entityManager->getConnection();
 		$conn->getDatabasePlatform()->registerDoctrineTypeMapping('enum', 'string');
+		$conn->getDatabasePlatform()->registerDoctrineTypeMapping('bit', 'boolean');
         $schemaTool = new SchemaTool($entityManager);
         $entities = $entityManager->getConfiguration()->getMetadataDriverImpl()->getAllClassNames();
 
